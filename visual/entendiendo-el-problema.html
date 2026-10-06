@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>YVH — Entender el problema visualmente</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --card: #1e293b;
+    --ink: #e2e8f0;
+    --muted: #94a3b8;
+    --soldier: #3b82f6;
+    --mech: #ef4444;
+    --ally: #22c55e;
+    --chosen: #f59e0b;
+    --line: #334155;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 32px 20px 80px;
+    background: var(--bg); color: var(--ink);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  h1 { font-size: 30px; margin: 0 0 4px; }
+  h2 { font-size: 22px; margin: 44px 0 8px; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+  p { color: var(--ink); }
+  .lead { color: var(--muted); margin-top: 0; }
+  .legend { display: flex; gap: 22px; flex-wrap: wrap; margin: 16px 0 8px; }
+  .legend div { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+  .dot { width: 16px; height: 16px; border-radius: 50%; display: inline-block; }
+  .sq { width: 16px; height: 16px; border-radius: 4px; display: inline-block; }
+  .scenes { display: grid; grid-template-columns: repeat(auto-fit, minmax(430px, 1fr)); gap: 22px; margin-top: 14px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+  .card h3 { margin: 0 0 2px; font-size: 17px; }
+  .card .proto { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; color: var(--chosen); }
+  .card .cap { color: var(--muted); font-size: 14px; margin: 8px 0 0; }
+  svg { width: 100%; height: auto; display: block; margin-top: 8px; }
+  .pipeline { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; align-items: stretch; gap: 10px; margin-top: 16px; }
+  .step { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+  .step h4 { margin: 0 0 8px; font-size: 16px; }
+  .step ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: 14px; }
+  .arrow { align-self: center; font-size: 26px; color: var(--muted); }
+  .rule { background: #0b1220; border: 1px solid var(--line); border-left: 4px solid var(--chosen); border-radius: 10px; padding: 16px 18px; margin-top: 16px; font-size: 17px; }
+  code { background: #0b1220; padding: 2px 6px; border-radius: 6px; font-size: 14px; }
+  .note { color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Droide YVH — entender el problema visualmente</h1>
+  <p class="lead">El droide está en el origen <code>(0,0)</code>. El módulo de visión le pasa puntos (<code>scan</code>) y el droide recibe órdenes (<code>protocols</code>). Debe devolver <strong>las coordenadas de UN solo punto</strong>: el siguiente objetivo.</p>
+
+  <div class="legend">
+    <div><span class="dot" style="background:var(--soldier)"></span> soldier (enemigo)</div>
+    <div><span class="sq" style="background:var(--mech)"></span> mech (enemigo blindado)</div>
+    <div><span class="dot" style="background:transparent;border:3px dashed var(--ally)"></span> tiene aliados</div>
+    <div><span style="width:16px;height:16px;border-radius:50%;border:3px solid var(--chosen);display:inline-block"></span> elegido (atacar)</div>
+    <div><span style="color:#f87171;font-weight:700">✕</span> descartado</div>
+  </div>
+
+  <h2>1 · La escena</h2>
+  <p>Todo lo que queda fuera del arco de <strong>100 m</strong> se ignora. Da igual el protocolo: es una regla fija.</p>
+  <div id="scene-1"></div>
+
+  <h2>2 · El pipeline de decisión (siempre en este orden)</h2>
+  <p>No importa en qué orden vengan los protocolos en el JSON. Primero se <strong>limpia</strong>, después se <strong>prefiere</strong>, y solo al final se <strong>elige</strong>.</p>
+  <div class="pipeline">
+    <div class="step">
+      <h4>1) LIMPIO</h4>
+      <ul>
+        <li>Fuera de 100 m</li>
+        <li>avoid-mech</li>
+        <li>avoid-crossfire</li>
+      </ul>
+    </div>
+    <div class="arrow">→</div>
+    <div class="step">
+      <h4>2) PREFIERO</h4>
+      <ul>
+        <li>prioritize-mech</li>
+        <li>assist-allies</li>
+      </ul>
+    </div>
+    <div class="arrow">→</div>
+    <div class="step">
+      <h4>3) ELIJO</h4>
+      <ul>
+        <li>closest-enemies</li>
+        <li>furthest-enemies</li>
+      </ul>
+    </div>
+  </div>
+  <div class="rule">Regla mental: <strong>limpio lo lejano/prohibido → prefiero mechs o aliados → elijo el más cerca o el más lejos.</strong></div>
+
+  <h2>3 · Tests resueltos sobre el plano</h2>
+  <p class="note">Cada tarjeta dibuja las coordenadas reales del test. Los puntos <span style="color:#f87171">con ✕</span> fueron descartados; el que tiene anillo dorado es la respuesta.</p>
+  <div class="scenes" id="scenes"></div>
+</div>
+
+<script>
+const MARGIN = 70, SCALE = 4, SIZE = MARGIN * 2 + 100 * SCALE;
+const w2s = (x, y) => ({ sx: MARGIN + x * SCALE, sy: SIZE - MARGIN - y * SCALE });
+
+function pointMarkup(p) {
+  const { sx, sy } = w2s(p.x, p.y);
+  const dead = p.state === 'elim';
+  const chosen = p.state === 'chosen';
+  let s = `<g opacity="${dead ? 0.32 : 1}">`;
+
+  if (p.allies) {
+    s += `<circle cx="${sx}" cy="${sy}" r="17" fill="none" stroke="#22c55e" stroke-width="3" stroke-dasharray="4 4"/>`;
+  }
+  if (chosen) {
+    s += `<circle cx="${sx}" cy="${sy}" r="15" fill="none" stroke="#f59e0b" stroke-width="3"/>`;
+  }
+  if (p.type === 'mech') {
+    s += `<rect x="${sx - 9}" y="${sy - 9}" width="18" height="18" rx="3" fill="#ef4444"/>`;
+  } else {
+    s += `<circle cx="${sx}" cy="${sy}" r="10" fill="#3b82f6"/>`;
+  }
+  if (dead) {
+    s += `<line x1="${sx - 12}" y1="${sy - 12}" x2="${sx + 12}" y2="${sy + 12}" stroke="#f87171" stroke-width="3"/>`;
+    s += `<line x1="${sx + 12}" y1="${sy - 12}" x2="${sx - 12}" y2="${sy + 12}" stroke="#f87171" stroke-width="3"/>`;
+  }
+  s += `<text x="${sx + 16}" y="${sy - 6}" fill="#e2e8f0" font-size="12" font-family="monospace">(${p.x},${p.y})</text>`;
+  s += `<text x="${sx + 16}" y="${sy + 10}" fill="#94a3b8" font-size="11" font-family="monospace">${p.type}${p.allies ? ' +' + p.allies + ' aliados' : ''}</text>`;
+  if (chosen) {
+    s += `<text x="${sx + 16}" y="${sy + 25}" fill="#f59e0b" font-size="12" font-weight="700">ATACAR</text>`;
+  }
+  s += `</g>`;
+  return s;
+}
+
+function scene(points) {
+  const o = w2s(0, 0);
+  const xEnd = w2s(110, 0), yEnd = w2s(0, 110);
+  const r = 100 * SCALE;
+  let s = `<svg viewBox="0 0 ${SIZE} ${SIZE}" role="img">`;
+  // alcance 100m
+  s += `<path d="M ${o.sx + r} ${o.sy} A ${r} ${r} 0 0 0 ${o.sx} ${o.sy - r}" fill="rgba(148,163,184,0.06)" stroke="#475569" stroke-width="1.5" stroke-dasharray="6 6"/>`;
+  s += `<text x="${o.sx + r - 56}" y="${o.sy - 14}" fill="#64748b" font-size="12">100 m</text>`;
+  // ejes
+  s += `<line x1="${o.sx}" y1="${o.sy}" x2="${xEnd.sx}" y2="${xEnd.sy}" stroke="#334155" stroke-width="1.5"/>`;
+  s += `<line x1="${o.sx}" y1="${o.sy}" x2="${yEnd.sx}" y2="${yEnd.sy}" stroke="#334155" stroke-width="1.5"/>`;
+  s += `<text x="${xEnd.sx - 8}" y="${o.sy + 18}" fill="#64748b" font-size="12">x</text>`;
+  s += `<text x="${o.sx - 16}" y="${yEnd.sy + 4}" fill="#64748b" font-size="12">y</text>`;
+  // droid
+  s += `<circle cx="${o.sx}" cy="${o.sy}" r="7" fill="#e2e8f0"/>`;
+  s += `<text x="${o.sx + 12}" y="${o.sy + 20}" fill="#94a3b8" font-size="12" font-family="monospace">YVH (0,0)</text>`;
+  points.forEach(p => { s += pointMarkup(p); });
+  s += `</svg>`;
+  return s;
+}
+
+// La escena general: cómo se ve un scan
+document.getElementById('scene-1').innerHTML = scene([
+  { x: 0,  y: 40, type: 'soldier' },
+  { x: 0,  y: 80, type: 'mech', allies: 5 },
+  { x: 35, y: 5,  type: 'soldier' },
+  { x: 5,  y: 35, type: 'soldier', allies: 3 },
+  { x: 70, y: 91, type: 'soldier' },
+]);
+
+const cards = [
+  {
+    title: 'Test 1', proto: '["avoid-mech"]',
+    cap: 'Hay un mech → se descarta. Queda el soldier y se ataca.',
+    points: [
+      { x: 0, y: 40, type: 'soldier', state: 'chosen' },
+      { x: 0, y: 80, type: 'mech', allies: 5, state: 'elim' },
+    ],
+  },
+  {
+    title: 'Test 2', proto: '["prioritize-mech"]',
+    cap: 'Hay un mech → se prioriza el mech. El soldier queda, pero no gana.',
+    points: [
+      { x: 0, y: 40, type: 'soldier' },
+      { x: 0, y: 80, type: 'mech', allies: 5, state: 'chosen' },
+    ],
+  },
+  {
+    title: 'Test 5', proto: '["assist-allies"]',
+    cap: 'Empate de distancia (ambos a ~35,4 m). Se prefiere el que tiene aliados.',
+    points: [
+      { x: 5,  y: 35, type: 'soldier', allies: 3, state: 'chosen' },
+      { x: 35, y: 5,  type: 'soldier' },
+    ],
+  },
+  {
+    title: 'Test 6', proto: '["avoid-crossfire"]',
+    cap: 'Mismos puntos. Se elimina el que tiene aliados (no matar a los tuyos).',
+    points: [
+      { x: 5,  y: 35, type: 'soldier', allies: 3, state: 'elim' },
+      { x: 35, y: 5,  type: 'soldier', state: 'chosen' },
+    ],
+  },
+  {
+    title: 'Test 8', proto: '["closest-enemies","avoid-mech"]',
+    cap: 'Primero limpio: fuera los dos mechs. Después elijo: el soldier más cercano.',
+    points: [
+      { x: 0, y: 1,  type: 'mech', state: 'elim' },
+      { x: 0, y: 10, type: 'soldier', state: 'chosen' },
+      { x: 0, y: 99, type: 'mech', state: 'elim' },
+    ],
+  },
+  {
+    title: 'Test 10', proto: '["furthest-enemies"]',
+    cap: 'El más lejano PERO dentro de 100 m. (70,91) está a 114 m → fuera.',
+    points: [
+      { x: 30, y: 95, type: 'soldier', state: 'chosen' },
+      { x: 70, y: 91, type: 'soldier', state: 'elim' },
+      { x: 10, y: 20, type: 'soldier' },
+    ],
+  },
+];
+
+document.getElementById('scenes').innerHTML = cards.map(c => `
+  <div class="card">
+    <h3>${c.title}</h3>
+    <div class="proto">protocols: ${escapeHtml(c.proto)}</div>
+    ${scene(c.points)}
+    <p class="cap">${c.cap}</p>
+  </div>
+`).join('');
+
+function escapeHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+</script>
+</body>
+</html>
