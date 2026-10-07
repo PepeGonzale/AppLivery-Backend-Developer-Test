@@ -1,0 +1,30 @@
+services:
+  mongo:
+    image: mongo:8
+    container_name: yvh-mongo
+    restart: unless-stopped
+    ports:
+      - "${MONGO_HOST_PORT:-27017}:27017"
+    volumes:
+      - yvh-mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    container_name: yvh-app
+    restart: unless-stopped
+    environment:
+      PORT: 8888
+      MONGO_URI: mongodb://mongo:27017/yvh
+    ports:
+      - "${APP_HOST_PORT:-8888}:8888"
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+volumes:
+  yvh-mongo-data:
