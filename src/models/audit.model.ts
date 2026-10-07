@@ -11,7 +11,6 @@ const auditSchema = new Schema(
     protocols: { type: [String], required: true },
     createdAt: { type: Date, default: Date.now, index: true },
   },
-  { versionKey: false },
 );
 
 export type Audit = InferSchemaType<typeof auditSchema>;
